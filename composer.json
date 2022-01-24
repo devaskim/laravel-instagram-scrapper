@@ -1,0 +1,33 @@
+{
+  "name": "denisdenisi4/laravel-instagram-scrapper",
+  "description": "Scrape Instagram stories and posts",
+  "keywords": [
+    "laravel",
+    "instagram",
+    "story",
+    "post",
+    "media"
+  ],
+  "require": {
+    "php": "^7.3|^8.0",
+    "raiym/instagram-php-scraper": "^0.12.0",
+    "phpfastcache/phpfastcache": "^8.1",
+    "guzzlehttp/guzzle": "^7.4"
+  },
+  "autoload": {
+    "psr-4": {
+      "InstagramScrapper\\": "src/"
+    }
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-master": "0.1"
+    },
+    "laravel": {
+      "providers": [
+        "InstagramScrapper\\InstagramServiceProvider"
+      ]
+    }
+  },
+  "minimum-stability": "stable"
+}
