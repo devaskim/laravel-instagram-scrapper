@@ -9,7 +9,12 @@
 ]
 ```
 
-2.Publish package resources:
+2. Install package:
+```
+composer require denisdenisi4/laravel-instagram-scrapper:*
+```
+
+3. Publish package resources:
 ```
 php artisan vendor:publish --provider="InstagramScrapper\InstagramServiceProvider"
 ```
