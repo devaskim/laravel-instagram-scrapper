@@ -14,7 +14,11 @@
 composer require denisdenisi4/laravel-instagram-scrapper:*
 ```
 
-3. Publish package resources:
+# Configuration
+
+1. Edit [this file](https://github.com/denisdenisi4/laravel-instagram-scrapper/blob/main/config/instagram-scrapper.php).
+
+2. Publish package resources:
 ```
 php artisan vendor:publish --provider="InstagramScrapper\InstagramServiceProvider"
 ```
@@ -23,10 +27,6 @@ php artisan vendor:publish --provider="InstagramScrapper\InstagramServiceProvide
 ```
 php artisan migrate
 ```
-
-# Configuration
-
-See [this file](https://github.com/denisdenisi4/laravel-instagram-scrapper/blob/main/config/instagram-scrapper.php).
 
 # Run
 
