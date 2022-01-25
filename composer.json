@@ -10,7 +10,7 @@
   ],
   "require": {
     "php": "^7.3|^8.0",
-    "raiym/instagram-php-scraper": "^0.12.0",
+    "raiym/instagram-php-scraper": ">=0.12.3",
     "phpfastcache/phpfastcache": "^8.1",
     "guzzlehttp/guzzle": "^7.4"
   },

@@ -82,7 +82,7 @@ class Scrapper
     }
 
     private function isLoggedIn() {
-        return $this->instagram->isLoggedIn($this->cache->get(md5(Config::get('instagram-scrapper.username'))));
+        return $this->instagram->isLoggedIn($this->cache->get($this->instagram->getCacheKey(Config::get('instagram-scrapper.username'))));
     }
 
     private function login() {
