@@ -17,6 +17,33 @@ use InstagramScrapper\Models\Story;
 
 class Scrapper
 {
+    const COMMON_FIELDS = [ "id",
+                            "type",
+                            "shortCode",
+                            "link",
+                            "likesCount",
+                            "commentsCount",
+                            "caption",
+                            "altText" ];
+
+    const LOCATION_FIELDS = [ "locationId",
+                              "locationName",
+                              "locationSlug" ];
+
+    const IMAGE_FIELDS = [ "imageLowResolutionUrl",
+                           "imageThumbnailUrl",
+                           "imageStandardResolutionUrl",
+                           "imageHighResolutionUrl" ];
+
+    const VIDEO_FIELDS = [ "videoLowResolutionUrl",
+                           "videoStandardResolutionUrl",
+                           "videoLowBandwidthUrl",
+                           "videoDuration",
+                           "videoViews" ];
+
+    const SIDECAR_IMAGES_KEY = "sidecar_images";
+    const SIDECAR_VIDEOS_KEY = "sidecar_videos";
+
     private $mediaType;
     private $instagram;
     private $httpClient;
@@ -33,11 +60,11 @@ class Scrapper
         $this->instagram->setUserAgent(Config::get('instagram-scrapper.user_agent'));
         $this->instagram->setCustomCookies(Config::get('instagram-scrapper.cookies'));
     }
-    
+
     public function getMediaType() {
         return $this->mediaType;
     }
-    
+
     public function setMediaType($mediaType) {
         if ($this->validateMediaType($mediaType)) {
             $this->mediaType = $mediaType;
@@ -46,14 +73,14 @@ class Scrapper
             throw new InvalidArgumentException("Unexpected media type for Instagram scrapping: {$mediaType}");
         }
     }
-    
+
     private function validateMediaType($mediaType) {
         return $mediaType === "all" ||
                $mediaType === "story" ||
                $mediaType === "post";
-               
+
     }
-    
+
     private function isLoggedIn() {
         return $this->instagram->isLoggedIn($this->cache->get(md5(Config::get('instagram-scrapper.username'))));
     }
@@ -62,7 +89,7 @@ class Scrapper
         if ($this->isLoggedIn()) {
             return true;
         }
-        
+
         try {
             $this->instagram->login();
             $this->instagram->saveSession();
@@ -76,93 +103,70 @@ class Scrapper
         }
         return $this->isLoggedIn();
     }
-    
-    public function __invoke() {        
+
+    public function __invoke() {
         switch ($this->mediaType) {
-        case "story":
-            $this->scrapeStories();
-            break;
-        case "post":
-            $this->scrapePosts();
-            break;
-        case "all":
-            $this->scrapePosts();
-            $this->scrapeStories();
-            break;
+            case "story":
+                $this->scrapeStories();
+                break;
+            case "post":
+                $this->scrapePosts();
+                break;
+            case "all":
+                $this->scrapePosts();
+                $this->scrapeStories();
+                break;
         }
     }
-    
-    private function extract_instagram_images($media) {
-        $images = [];
-        if ($media["imageLowResolutionUrl"] !== "") { $images["imageLowResolutionUrl"] = $media["imageLowResolutionUrl"]; }
-        if ($media["imageThumbnailUrl"] !== "") { $images["imageThumbnailUrl"] = $media["imageThumbnailUrl"]; }
-        if ($media["imageStandardResolutionUrl"] !== "") { $images["imageStandardResolutionUrl"] = $media["imageStandardResolutionUrl"]; }
-        if ($media["imageHighResolutionUrl"] !== "") { $images["imageHighResolutionUrl"] = $media["imageHighResolutionUrl"]; }
-        return $images;
+
+    private function extract_fields($media, $fields) {
+        $data = [];
+        foreach ($fields as &$field) {
+            if (!is_null($media[$field]) && $media[$field] !== "") {
+                $data[$field] = $media[$field];
+            }
+        }
+        return $data;
     }
-    
-    private function extract_instagram_videos($media, $with_stats = true) {
-        $videos = [];
-        if ($media["videoLowResolutionUrl"] !== "") { $videos["videoLowResolutionUrl"] = $media["videoLowResolutionUrl"]; }
-        if ($media["videoStandardResolutionUrl"] !== "") { $videos["videoStandardResolutionUrl"] = $media["videoStandardResolutionUrl"]; }
-        if ($media["videoLowBandwidthUrl"] !== "") { $videos["videoLowBandwidthUrl"] = $media["videoLowBandwidthUrl"]; }
-        if ($with_stats && $media["videoDuration"] !== "") { $videos["videoDuration"] = $media["videoDuration"]; }
-        if ($with_stats && $media["videoViews"] !== "") { $videos["videoViews"] = $media["videoViews"]; }
-        return $videos;
-    }
-    
+
     public function scrapePosts() {
         $USERNAME_FIELD = Config::get('instagram-scrapper.table_pages.url_field');
-        
+
         if (!$this->login()) {
             Log::error("No login success so skip Instagram scrapping");
             return;
         }
-        
+
         $result = [];
         foreach ($this->getUsernames() as &$user) {
             try {
                 $posts  = $this->instagram->getMediasFromFeed($user->$USERNAME_FIELD, intval(Config::get('instagram-scrapper.max_post_count')));
                 foreach ($posts as &$post){
-                    $data = ['type' => $post['type'],
-                             "id" => $post["id"],
-                             "shortCode" => $post["shortCode"],
-                             "link" => $post["link"],
-                             "likesCount" => $post["likesCount"],
-                             "commentsCount" => $post["commentsCount"]];
-                             
-                    if ($post["caption"] !== "") { $data["caption"] = $post["caption"]; }
-                    if ($post["altText"] !== "") { $data["altText"] = $post["altText"]; }
+                    $data = $this->extract_fields($post, self::COMMON_FIELDS + self::LOCATION_FIELDS + self::IMAGE_FIELDS);
 
-                    if ($post["locationId"] !== "") { $data["locationId"] = $post["locationId"]; }
-                    if ($post["locationName"] !== "") { $data["locationName"] = $post["locationName"]; }
-                    if ($post["locationSlug"] !== "") { $data["locationSlug"] = $post["locationSlug"]; }
-
-                    $data = array_merge($data, $this->extract_instagram_images($post));
-                             
                     switch ($data['type']) {
-                    case "image":
-                    break;
-                    case "video":
-                        $data = array_merge($data, $this->extract_instagram_videos($post));
-                    break;
-                    case "sidecar":
-                        foreach ($post["sidecarMedias"] as &$media) {
-                            switch ($media['type']) {
-                            case "image":
-                                $data["sidecar_images"] = $this->extract_instagram_images($media);
+                        case "image":
                             break;
-                            case "video":
-                                $data["sidecar_videos"] = $this->extract_instagram_videos($media);
+                        case "video":
+                            $data = $data + $this->extract_fields($post, self::VIDEO_FIELDS);
                             break;
-                            default:
-                                Log::warning("No mapping for sidecar Instagram media type {$media['type']}");
+                        case "sidecar":
+                            foreach ($post["sidecarMedias"] as &$media) {
+                                switch ($media['type']) {
+                                    case "image":
+                                        $data[self::SIDECAR_IMAGES_KEY] = $this->extract_fields($media, self::IMAGE_FIELDS);
+                                        break;
+                                    case "video":
+                                        $data[self::SIDECAR_VIDEOS_KEY] = $this->extract_fields($media, self::VIDEO_FIELDS);
+                                        break;
+                                    default:
+                                        Log::warning("No mapping for sidecar Instagram media type {$media['type']}");
+                                }
                             }
-                        }
-                    default:
-                        Log::warning("No mapping for Instagram media type {$data['type']}");             
+                        default:
+                            Log::warning("No mapping for Instagram media type {$data['type']}");
                     }
-                    
+
                     $result[] = [ "owner_id" => $user->id,
                                   "data" => json_encode($data),
                                   "created_at" => gmdate("Y-m-d H:i:s", $post['createdTime']),
@@ -172,7 +176,7 @@ class Scrapper
                 Log::error("Instagram post fetch failure for user '{$user->$USERNAME_FIELD}': {$e->getMessage()}");
             }
         }
-        
+
         Log::debug("Truncating Instagram posts table");
 
         // FIXME: Do we need some kind of locking?
@@ -184,7 +188,7 @@ class Scrapper
 
     public function scrapeStories() {
         $USERNAME_FIELD = Config::get('instagram-scrapper.table_pages.url_field');
-        
+
         if (!$this->login()) {
             Log::error("No login success so skip Instagram scrapping");
             return;
@@ -200,7 +204,7 @@ class Scrapper
                     Log::error("No id resolved for Instagram user '{$user->$USERNAME_FIELD}'");
                     continue;
                 }
-                
+
                 Log::debug("Resolved id for Instagram user '{$user->$USERNAME_FIELD}' to {$userId}");
 
                 $user_stories = $this->instagram->getStories($userId);
@@ -209,7 +213,8 @@ class Scrapper
                     Log::debug("Processing ".count($stories)." stories for Instagram user '{$user->$USERNAME_FIELD}'");
                     foreach ($stories as &$story) {
                         $result[] = [ "owner_id" => $user->id,
-                                      "data" => json_encode($this->extract_instagram_videos($story, false)),
+                                      "data" => json_encode($this->extract_fields($story,
+                                                                                  $story['type'] === "video" ? self::VIDEO_FIELDS : self::IMAGE_FIELDS)),
                                       "created_at" => gmdate("Y-m-d H:i:s", $story['createdTime']),
                                       "updated_at" => gmdate("Y-m-d H:i:s", $story['modified'])];
                     }
